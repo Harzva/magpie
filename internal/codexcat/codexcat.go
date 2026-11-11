@@ -352,6 +352,12 @@ func Entries(ms []catalog.Model, after int) []any {
 	return entriesAt(ms, after, NewSessionEffort())
 }
 
+// EntriesAt is Entries for a particular Codex home's default effort,
+// instead of the home this magpie was started with.
+func EntriesAt(ms []catalog.Model, after int, effort string) []any {
+	return entriesAt(ms, after, effort)
+}
+
 func entriesAt(ms []catalog.Model, after int, effort string) []any {
 	own := CacheEntries()
 	v1 := V1()

@@ -51,6 +51,17 @@ func CodexHomes() []string {
 
 // CodexHomesIn is CodexHomes with home as the user's home folder.
 func CodexHomesIn(home string) []string {
+	return codexHomesIn(home, false)
+}
+
+// CodexCatalogHomesIn also looks under accounts containers made by account
+// managers. Only catalog synchronization uses this wider search: finding a
+// model list must not enroll more sign-ins or expose more session stores.
+func CodexCatalogHomesIn(home string) []string {
+	return codexHomesIn(home, true)
+}
+
+func codexHomesIn(home string, accounts bool) []string {
 	main := CodexHomeIn(home)
 	out := []string{main}
 	seen := map[string]bool{sameDir(main): true}
@@ -80,12 +91,23 @@ func CodexHomesIn(home string) []string {
 			}
 			if codexHomeAt(dir) {
 				add(dir)
-				continue
+				if !accounts {
+					continue
+				}
 			}
 			subs, _ := os.ReadDir(dir)
 			for _, s := range subs {
-				if sub := filepath.Join(dir, s.Name()); codexHomeAt(sub) {
+				sub := filepath.Join(dir, s.Name())
+				if codexHomeAt(sub) {
 					add(sub)
+				}
+				if accounts && s.Name() == "accounts" {
+					children, _ := os.ReadDir(sub)
+					for _, child := range children {
+						if account := filepath.Join(sub, child.Name()); codexHomeAt(account) {
+							add(account)
+						}
+					}
 				}
 			}
 		}

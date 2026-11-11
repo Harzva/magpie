@@ -308,6 +308,10 @@ func IsLink(path string) bool {
 	return err == nil && fi.Mode()&fs.ModeSymlink != 0
 }
 
+// IsHardLink reports whether path shares its file with another name.
+// A caller updating only one owner's files can leave such files alone.
+func IsHardLink(path string) bool { return hardLinked(path) }
+
 // Remove takes away a file magpie has emptied. A symlink stays and the
 // file it points at is emptied instead, when there is one: deleting the
 // link would leave the old text in its target. A file with other hard

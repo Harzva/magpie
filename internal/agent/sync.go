@@ -62,6 +62,7 @@ func SyncCatalog() {
 				a.renameFoundGroups()
 			}
 		}
+		syncOtherCodexCatalogs()
 		unhold()
 		release()
 		syncing.Lock()

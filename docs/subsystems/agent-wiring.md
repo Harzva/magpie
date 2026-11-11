@@ -8,6 +8,19 @@ supported agent: where its config lives, which fields matter and which
 values to offer. It also records what magpie set, so a later change made by
 something else shows up as drift.
 
+`SyncCatalog` also updates existing managed model catalogs in secondary
+local Codex homes (`codex_other_homes.go`). Its catalog-only discovery,
+`appdir.CodexCatalogHomesIn`, includes `codex*/accounts/<home>` containers
+without expanding credential or session discovery. Only a config still
+pointing at this gateway and naming its own `magpie-models.json` or
+`magpie-desktop-models.json` qualifies. Other gateways, custom catalogs,
+selected profiles, redirected or hard-linked files and unknown or missing lists are left
+alone. Each home's native desktop model entries and extra metadata are
+kept; magpie's entries follow the current catalog with that home's effort
+and selected model. This pass changes no secondary home's config, sign-in,
+thread or stash, and does not fetch its native model list. The tests are
+`TestCodexOtherHomes*` and `TestCodexCatalogHomesInAccountContainers`.
+
 ## Responsibilities and sources of truth
 
 | Part | Responsibility | Source |

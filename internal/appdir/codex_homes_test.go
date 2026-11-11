@@ -41,3 +41,36 @@ func TestCodexHomesIn(t *testing.T) {
 		t.Fatalf("CodexHomesIn = %v, want %v", got, want)
 	}
 }
+
+// Account managers keep homes a level below their accounts container,
+// including when the manager's root itself has a Codex sign-in.
+func TestCodexCatalogHomesInAccountContainers(t *testing.T) {
+	t.Setenv("CODEX_HOME", "")
+	home := t.TempDir()
+	root := filepath.Join(home, ".codex-managed-agent")
+	want := []string{root, filepath.Join(root, "accounts", "personal"), filepath.Join(root, "accounts", "work")}
+	for _, dir := range want {
+		if err := os.MkdirAll(filepath.Join(dir, "sessions"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Other app folders and arbitrarily deep trees are not searched.
+	for _, dir := range []string{filepath.Join(home, "projects", "accounts", "no"), filepath.Join(root, "notes", "nested")} {
+		if err := os.MkdirAll(filepath.Join(dir, "sessions"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := CodexCatalogHomesIn(home)
+	if len(got) != len(want)+1 {
+		t.Fatalf("homes = %v, want default and %v", got, want)
+	}
+	for _, dir := range want {
+		if !slices.Contains(got, dir) {
+			t.Errorf("account home %s was not found: %v", dir, got)
+		}
+	}
+	// Credential and session discovery keep their existing scope.
+	if got := CodexHomesIn(home); len(got) != 2 || got[1] != root {
+		t.Fatalf("catalog discovery expanded sign-in discovery too: %v", got)
+	}
+}
