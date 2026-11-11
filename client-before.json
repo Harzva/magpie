@@ -1,0 +1,44 @@
+{
+  "id": 2,
+  "result": {
+    "data": [
+      {
+        "id": "fake/m1",
+        "model": "fake/m1",
+        "upgrade": null,
+        "upgradeInfo": null,
+        "availabilityNux": null,
+        "displayName": "m1 \u00b7 Fake",
+        "description": "m1 \u00b7 Fake (text only: Accepts images is in its provider's Model settings in magpie) via magpie",
+        "modelSpecialty": null,
+        "hidden": false,
+        "supportedReasoningEfforts": [
+          {
+            "reasoningEffort": "low",
+            "description": ""
+          },
+          {
+            "reasoningEffort": "medium",
+            "description": ""
+          },
+          {
+            "reasoningEffort": "high",
+            "description": ""
+          }
+        ],
+        "defaultReasoningEffort": "medium",
+        "inputModalities": [
+          "text"
+        ],
+        "supportsPersonality": false,
+        "multiAgentVersion": null,
+        "additionalSpeedTiers": [],
+        "serviceTiers": [],
+        "defaultServiceTier": null,
+        "availableAccessPrograms": null,
+        "isDefault": true
+      }
+    ],
+    "nextCursor": null
+  }
+}

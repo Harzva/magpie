@@ -1,0 +1,80 @@
+{
+  "sourceCommit": "86ef180a0dfad275a8a05a519e2e31c68cd7491c",
+  "baseCommit": "bc59aefd096c0d11ea0a8bdd9ac47349030ec718",
+  "toolchain": "go1.26.8",
+  "catalogTestsPassed": 34,
+  "finalChecksExitCodes": {
+    "catalog-tests": "0",
+    "vet-native": "0",
+    "vet-linux": "0",
+    "vet-windows": "0",
+    "build-native": "0",
+    "build-linux": "0",
+    "build-windows": "0",
+    "focused-race": "0"
+  },
+  "clientModelList": {
+    "client": "codex-cli 0.167.0-alpha.3.2",
+    "surface": "real Codex app-server model/list, synthetic local catalogs; no inference",
+    "before": {
+      "models": [
+        "fake/m1"
+      ],
+      "qwen4Listed": false,
+      "exitCode": 0
+    },
+    "after": {
+      "models": [
+        "fake/m1",
+        "qwen-vip/qwen4-max-preview"
+      ],
+      "qwen4Listed": true,
+      "exitCode": 0
+    }
+  },
+  "fullSuite": {
+    "clean": false,
+    "initialBase": "a3d2a85dd3803a3b8208d40fe5f61e8e63712e62",
+    "toolchain": "go1.27.2",
+    "failedTests": [
+      "TestAlmaProvidersSeenDecodeOnce",
+      "TestLegacyStatusAsksTheSystem",
+      "TestHealthcheckFindsTheRunningGatewayWithoutMagpieAddr",
+      "TestUpdateRestartsTheGatewayItFindsWithoutMagpieAddr",
+      "TestWriteAtomicKeepsGroupAndMode",
+      "TestMarshalRawIsEncodingJSON",
+      "TestMarshalSizedIsJSONMarshal",
+      "TestServeWSLListensBesideLoopback",
+      "FuzzMarshalRaw",
+      "TestCodexDaemonRestartRoute",
+      "TestProxyCheckSaysAProxyPassedBy",
+      "TestGiveKeepsTheListenerNonblocking",
+      "TestTakeOnlyAFreshOfferForThisProgram",
+      "TestRemoteMagpieRouterIsAServer",
+      "TestCmdVarsLaunch",
+      "TestCodexOffKeepsAppsOwnConfig",
+      "TestEnvRefsFromLoginShell",
+      "TestCheckStdio",
+      "TestCheckServersOnce",
+      "TestCheckServerThatRefusesHome",
+      "TestCheckWSLOnlyServerInItsDistro",
+      "TestCheckWindowsServerHere",
+      "TestCheckMixedServerEachSide",
+      "TestHubInstructionsDescribeServers",
+      "TestHubDescriptionsOutliveARestart",
+      "TestHubToolsAndCalls",
+      "TestHubServerDiesAndIdles",
+      "TestHubPrune",
+      "TestHubGivesMagpieImage",
+      "TestHubTellsMagpieMemoryItsCaller",
+      "TestHubTellsMagpieBrowserItsCaller",
+      "TestHubKeepsThisComputersOwnServersHere",
+      "TestServerOnKeepsAndRestores",
+      "TestCombinedOutputOwnRuns",
+      "TestRestartCodexDaemon",
+      "TestRestartCodexDaemonFails",
+      "TestRestartedCodexDaemonIsNotMagpies",
+      "TestKeepCodexDaemonCurrent"
+    ]
+  }
+}

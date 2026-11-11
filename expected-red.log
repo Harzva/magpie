@@ -1,0 +1,7 @@
+=== RUN   TestCodexOtherHomesCatalogSync
+--- FAIL: TestCodexOtherHomesCatalogSync (1.00s)
+=== RUN   TestCodexOtherHomesProviderCatalog
+--- FAIL: TestCodexOtherHomesProviderCatalog (0.08s)
+FAIL
+FAIL	github.com/yetone/magpie/internal/agent	2.697s
+FAIL

@@ -1,0 +1,32 @@
+=== RUN   TestWriteAtomicKeepsGroupAndMode
+--- PASS: TestWriteAtomicKeepsGroupAndMode (0.01s)
+PASS
+ok  	github.com/yetone/magpie/internal/edit	2.050s
+=== RUN   TestCombinedOutputOwnRuns
+--- PASS: TestCombinedOutputOwnRuns (0.07s)
+PASS
+ok  	github.com/yetone/magpie/internal/proc	3.725s
+=== RUN   TestRestartCodexDaemon
+--- PASS: TestRestartCodexDaemon (1.71s)
+=== RUN   TestRestartCodexDaemonFails
+--- PASS: TestRestartCodexDaemonFails (0.01s)
+=== RUN   TestRestartedCodexDaemonIsNotMagpies
+--- PASS: TestRestartedCodexDaemonIsNotMagpies (0.19s)
+=== RUN   TestKeepCodexDaemonCurrent
+--- PASS: TestKeepCodexDaemonCurrent (0.01s)
+=== RUN   TestKeepCodexDaemonCurrentListsOnlyWhenBehind
+--- PASS: TestKeepCodexDaemonCurrentListsOnlyWhenBehind (0.00s)
+=== RUN   TestKeepCodexDaemonCurrentFails
+--- PASS: TestKeepCodexDaemonCurrentFails (0.01s)
+PASS
+ok  	github.com/yetone/magpie/internal/provider	2.739s
+=== RUN   TestCheckServerThatRefusesHome
+--- PASS: TestCheckServerThatRefusesHome (3.76s)
+=== RUN   TestHubServerDiesAndIdles
+--- PASS: TestHubServerDiesAndIdles (0.49s)
+PASS
+ok  	github.com/yetone/magpie/internal/library	5.199s
+=== RUN   TestCodexDaemonRestartRoute
+--- PASS: TestCodexDaemonRestartRoute (1.81s)
+PASS
+ok  	github.com/yetone/magpie/internal/gui	2.947s

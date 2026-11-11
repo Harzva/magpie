@@ -1,0 +1,136 @@
+=== RUN   TestCodexCatalogCompactAtReachesDisk
+--- PASS: TestCodexCatalogCompactAtReachesDisk (3.93s)
+=== RUN   TestCodexNeverNamesGoneCatalog
+=== RUN   TestCodexNeverNamesGoneCatalog/connect,_disconnect
+=== RUN   TestCodexNeverNamesGoneCatalog/connect,_Codex's_default
+=== RUN   TestCodexNeverNamesGoneCatalog/connect,_a_model_of_Codex's_own
+=== RUN   TestCodexNeverNamesGoneCatalog/provider_taken_out,_disconnect
+=== RUN   TestCodexNeverNamesGoneCatalog/provider_taken_out,_a_model_of_Codex's_own
+=== RUN   TestCodexNeverNamesGoneCatalog/provider_taken_out,_sync
+=== RUN   TestCodexNeverNamesGoneCatalog/provider_and_base_URL_taken_out,_disconnect
+=== RUN   TestCodexNeverNamesGoneCatalog/another_provider,_no_base_URL,_disconnect
+=== RUN   TestCodexNeverNamesGoneCatalog/own_model,_provider_and_base_URL_taken_out,_unwire
+=== RUN   TestCodexNeverNamesGoneCatalog/own_model_picked_in_the_app,_disconnect
+=== RUN   TestCodexNeverNamesGoneCatalog/ChatGPT,_disconnect
+=== RUN   TestCodexNeverNamesGoneCatalog/ChatGPT_out,_disconnect
+=== RUN   TestCodexNeverNamesGoneCatalog/ChatGPT_out,_room_again,_sync
+=== RUN   TestCodexNeverNamesGoneCatalog/API_key,_then_signs_in_to_ChatGPT,_disconnect
+--- PASS: TestCodexNeverNamesGoneCatalog (3.56s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/connect,_disconnect (0.26s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/connect,_Codex's_default (0.20s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/connect,_a_model_of_Codex's_own (0.27s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/provider_taken_out,_disconnect (0.23s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/provider_taken_out,_a_model_of_Codex's_own (0.21s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/provider_taken_out,_sync (0.23s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/provider_and_base_URL_taken_out,_disconnect (0.26s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/another_provider,_no_base_URL,_disconnect (0.27s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/own_model,_provider_and_base_URL_taken_out,_unwire (0.21s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/own_model_picked_in_the_app,_disconnect (0.13s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/ChatGPT,_disconnect (0.28s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/ChatGPT_out,_disconnect (0.40s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/ChatGPT_out,_room_again,_sync (0.35s)
+    --- PASS: TestCodexNeverNamesGoneCatalog/API_key,_then_signs_in_to_ChatGPT,_disconnect (0.24s)
+=== RUN   TestCodexOwnCatalogGoneNotPutBack
+--- PASS: TestCodexOwnCatalogGoneNotPutBack (0.80s)
+=== RUN   TestCodexSyncMendsGoneCatalog
+=== RUN   TestCodexSyncMendsGoneCatalog/not_the_provider
+=== RUN   TestCodexSyncMendsGoneCatalog/the_provider
+--- PASS: TestCodexSyncMendsGoneCatalog (0.24s)
+    --- PASS: TestCodexSyncMendsGoneCatalog/not_the_provider (0.05s)
+    --- PASS: TestCodexSyncMendsGoneCatalog/the_provider (0.19s)
+=== RUN   TestCodexCatalogKeepsWhatTheUserAdded
+--- PASS: TestCodexCatalogKeepsWhatTheUserAdded (0.42s)
+=== RUN   TestCodexCatalogRemovedWhenNothingAdded
+--- PASS: TestCodexCatalogRemovedWhenNothingAdded (0.12s)
+=== RUN   TestCodexCatalogTiersReachDisk
+--- PASS: TestCodexCatalogTiersReachDisk (0.15s)
+=== RUN   TestCodexDesktopEfforts
+=== RUN   TestCodexDesktopEfforts/unset
+=== RUN   TestCodexDesktopEfforts/user's_own
+=== RUN   TestCodexDesktopEfforts/not_routed
+=== RUN   TestCodexDesktopEfforts/inline_desktop
+--- PASS: TestCodexDesktopEfforts (0.55s)
+    --- PASS: TestCodexDesktopEfforts/unset (0.17s)
+    --- PASS: TestCodexDesktopEfforts/user's_own (0.15s)
+    --- PASS: TestCodexDesktopEfforts/not_routed (0.09s)
+    --- PASS: TestCodexDesktopEfforts/inline_desktop (0.14s)
+=== RUN   TestCodexDesktopEffortsFollowTheCatalog
+--- PASS: TestCodexDesktopEffortsFollowTheCatalog (0.30s)
+=== RUN   TestCodexDesktopListBesideSignIn
+--- PASS: TestCodexDesktopListBesideSignIn (0.52s)
+=== RUN   TestCodexDesktopListCLIOnly
+--- PASS: TestCodexDesktopListCLIOnly (0.20s)
+=== RUN   TestCodexDesktopListKeepsTheirs
+--- PASS: TestCodexDesktopListKeepsTheirs (0.16s)
+=== RUN   TestCodexOtherHomesReviewLargeCatalog
+--- PASS: TestCodexOtherHomesReviewLargeCatalog (0.25s)
+=== RUN   TestCodexOtherHomesReviewExplicitHome
+--- PASS: TestCodexOtherHomesReviewExplicitHome (0.05s)
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/manual-provider
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/wrong-key
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/profile
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/null-list
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/object-list
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/null-entry
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/missing-slug
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/redirected
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/hardlinked
+--- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged (0.23s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/manual-provider (0.03s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/wrong-key (0.02s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/profile (0.02s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/null-list (0.02s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/object-list (0.02s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/null-entry (0.02s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/missing-slug (0.03s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/redirected (0.03s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/hardlinked (0.05s)
+=== RUN   TestCodexOtherHomesReviewUnreadable
+=== RUN   TestCodexOtherHomesReviewUnreadable/config.toml
+=== RUN   TestCodexOtherHomesReviewUnreadable/magpie-desktop-models.json
+--- PASS: TestCodexOtherHomesReviewUnreadable (0.07s)
+    --- PASS: TestCodexOtherHomesReviewUnreadable/config.toml (0.05s)
+    --- PASS: TestCodexOtherHomesReviewUnreadable/magpie-desktop-models.json (0.02s)
+=== RUN   TestCodexOtherHomesCatalogSync
+--- PASS: TestCodexOtherHomesCatalogSync (0.26s)
+=== RUN   TestCodexOtherHomesProviderCatalog
+--- PASS: TestCodexOtherHomesProviderCatalog (0.13s)
+=== RUN   TestCodexOtherHomesKeepUnmanagedCatalogs
+--- PASS: TestCodexOtherHomesKeepUnmanagedCatalogs (0.12s)
+=== RUN   TestCodexCatalogRelaysKnownModelsLevels
+--- PASS: TestCodexCatalogRelaysKnownModelsLevels (0.19s)
+=== RUN   TestCodexServedKeptWhileCatalogStays
+--- PASS: TestCodexServedKeptWhileCatalogStays (0.55s)
+=== RUN   TestCodexCatalogOffersUnknownModelsLevels
+--- PASS: TestCodexCatalogOffersUnknownModelsLevels (0.29s)
+PASS
+ok  	github.com/yetone/magpie/internal/agent	14.295s
+=== RUN   TestCodexHomesIn
+--- PASS: TestCodexHomesIn (0.01s)
+=== RUN   TestCodexCatalogHomesInAccountContainers
+--- PASS: TestCodexCatalogHomesInAccountContainers (0.00s)
+PASS
+ok  	github.com/yetone/magpie/internal/appdir	6.551s
+=== RUN   TestCodexCatalogKeepsOwnEntries
+--- PASS: TestCodexCatalogKeepsOwnEntries (0.05s)
+=== RUN   TestCodexCatalogImages
+--- PASS: TestCodexCatalogImages (0.00s)
+=== RUN   TestCodexCatalogToolSearch
+--- PASS: TestCodexCatalogToolSearch (0.03s)
+=== RUN   TestCodexCatalogParallelToolCalls
+--- PASS: TestCodexCatalogParallelToolCalls (0.00s)
+=== RUN   TestCodexCatalogServiceTiers
+--- PASS: TestCodexCatalogServiceTiers (0.02s)
+=== RUN   TestCodexCatalogSaysTextOnly
+--- PASS: TestCodexCatalogSaysTextOnly (0.00s)
+=== RUN   TestCodexCatalogCompactAt
+--- PASS: TestCodexCatalogCompactAt (0.24s)
+=== RUN   TestCodexCatalogDeepSeekAsDeepSeekSays
+--- PASS: TestCodexCatalogDeepSeekAsDeepSeekSays (0.00s)
+=== RUN   TestCodexCatalogKeepsUsersSummary
+--- PASS: TestCodexCatalogKeepsUsersSummary (0.00s)
+=== RUN   TestCodexCatalogReasoningSummaries
+--- PASS: TestCodexCatalogReasoningSummaries (0.00s)
+PASS
+ok  	github.com/yetone/magpie/internal/codexcat	8.230s

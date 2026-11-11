@@ -1,0 +1,746 @@
+From 86ef180a0dfad275a8a05a519e2e31c68cd7491c Mon Sep 17 00:00:00 2001
+From: Harzva <49864959+Harzva@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 15:19:24 +0800
+Subject: [PATCH] codex: refresh managed model catalogs in secondary local
+ homes
+
+A desktop magpie started without CODEX_HOME refreshed only its primary
+home. Already-connected secondary homes kept an old model_catalog_json
+file, so a newly available model such as Qwen4 was absent in that
+account's Codex picker even after magpie refreshed its providers.
+
+Add catalog-only discovery of secondary homes, including bounded account
+manager containers, without expanding credential or session discovery.
+Update only existing managed catalogs still routed to this local gateway.
+Retain each home's native entries, extra metadata and chosen effort;
+leave config, sign-in, threads, profiles, custom/remote catalogs and
+redirected or shared files alone. Reuse the existing entry generator,
+ordering, list fitting and user-field preservation.
+
+Verification on initial source base a3d2a85dd3803a3b8208d40fe5f61e8e63712e62:
+- The final CatalogSync and ProviderCatalog tests fail with only the new
+  SyncCatalog hook removed; they pass with it enabled.
+- Go 1.26.8: 34 catalog/desktop/home tests pass, including independently
+  added large-list, explicit-home, invalid-file and ownership cases.
+- Go 1.27.2 / macOS SDK 27: native, Linux and Windows vet/build pass;
+  focused race checks pass. gofmt and diff whitespace checks are clean.
+- Real codex-cli 0.167.0-alpha.3.2 app-server model/list, using generated
+  synthetic local catalogs: Qwen4 absent before sync, present afterwards.
+  No model inference, real sign-in or installed-app update was performed.
+- The full Go 1.27.2 nogui suite was run and is NOT clean. JSON-v2 and
+  allocation failures pass on the required Go 1.26.8. Selected file-group,
+  disclaimed-process and Library child checks pass with tiny runtime
+  fixtures on ordinary internal APFS; builds and caches remain external.
+  Other full-suite failures remain unclassified; no full-suite success
+  is claimed. The submission records these limits for maintainer review.
+
+Final validation after a clean rebase onto current main
+bc59aefd096c0d11ea0a8bdd9ac47349030ec718:
+- Go 1.26.8: the same 34 catalog/desktop/home tests pass. Native/Linux/
+  Windows vet and builds and focused race checks all exit 0.
+- Independent read-only review of the rebased nine-file diff found no
+  blocking issue. Final generated fixtures were read again by the real
+  Codex app-server with the same before/after result.
+- No full-suite success is claimed after the rebase. Linux and Windows
+  runtime checks and GUI browser tests were not run; GUI assets are
+  unchanged. This is a source contribution for review, not a release.
+---
+ docs/subsystems/agent-wiring.md               |  13 ++
+ internal/agent/codex_other_homes.go           | 165 +++++++++++++++
+ .../agent/codex_other_homes_review_test.go    | 192 ++++++++++++++++++
+ internal/agent/codex_other_homes_test.go      | 149 ++++++++++++++
+ internal/agent/sync.go                        |   1 +
+ internal/appdir/codex.go                      |  26 ++-
+ internal/appdir/codex_homes_test.go           |  33 +++
+ internal/codexcat/codexcat.go                 |   6 +
+ internal/edit/file.go                         |   4 +
+ 9 files changed, 587 insertions(+), 2 deletions(-)
+ create mode 100644 internal/agent/codex_other_homes.go
+ create mode 100644 internal/agent/codex_other_homes_review_test.go
+ create mode 100644 internal/agent/codex_other_homes_test.go
+
+diff --git a/docs/subsystems/agent-wiring.md b/docs/subsystems/agent-wiring.md
+index d782eba..517d984 100644
+--- a/docs/subsystems/agent-wiring.md
++++ b/docs/subsystems/agent-wiring.md
+@@ -8,6 +8,19 @@ supported agent: where its config lives, which fields matter and which
+ values to offer. It also records what magpie set, so a later change made by
+ something else shows up as drift.
+ 
++`SyncCatalog` also updates existing managed model catalogs in secondary
++local Codex homes (`codex_other_homes.go`). Its catalog-only discovery,
++`appdir.CodexCatalogHomesIn`, includes `codex*/accounts/<home>` containers
++without expanding credential or session discovery. Only a config still
++pointing at this gateway and naming its own `magpie-models.json` or
++`magpie-desktop-models.json` qualifies. Other gateways, custom catalogs,
++selected profiles, redirected or hard-linked files and unknown or missing lists are left
++alone. Each home's native desktop model entries and extra metadata are
++kept; magpie's entries follow the current catalog with that home's effort
++and selected model. This pass changes no secondary home's config, sign-in,
++thread or stash, and does not fetch its native model list. The tests are
++`TestCodexOtherHomes*` and `TestCodexCatalogHomesInAccountContainers`.
++
+ ## Responsibilities and sources of truth
+ 
+ | Part | Responsibility | Source |
+diff --git a/internal/agent/codex_other_homes.go b/internal/agent/codex_other_homes.go
+new file mode 100644
+index 0000000..9c2da5f
+--- /dev/null
++++ b/internal/agent/codex_other_homes.go
+@@ -0,0 +1,165 @@
++package agent
++
++import (
++	"bytes"
++	"encoding/json"
++	"log"
++	"os"
++	"path/filepath"
++	"strconv"
++	"strings"
++
++	"github.com/pelletier/go-toml/v2"
++
++	"github.com/yetone/magpie/internal/appdir"
++	"github.com/yetone/magpie/internal/catalog"
++	"github.com/yetone/magpie/internal/codexcat"
++	"github.com/yetone/magpie/internal/edit"
++	"github.com/yetone/magpie/internal/gateway"
++	"github.com/yetone/magpie/internal/provider"
++)
++
++// syncOtherCodexCatalogs refreshes existing lists in other local Codex
++// homes. Their full Agent.Sync would also switch providers, move threads
++// and change sign-ins, all of which belong to that home's owner.
++func syncOtherCodexCatalogs() {
++	home, err := os.UserHomeDir()
++	if err != nil {
++		return
++	}
++	for _, dir := range appdir.CodexCatalogHomesIn(home)[1:] {
++		if err := syncCodexCatalogIn(dir); err != nil {
++			log.Printf("codex: model catalog in %s: %v", dir, err)
++		}
++	}
++}
++
++// syncCodexCatalogIn writes only an existing managed catalog named by a
++// config still pointing at this gateway. Custom lists, remote magpies,
++// profiles and files whose contents are unknown are left alone. It reads
++// no secondary home's auth.json or keychain, and never edits config.toml.
++func syncCodexCatalogIn(dir string) error {
++	data, err := edit.Read(filepath.Join(dir, "config.toml"))
++	if err != nil {
++		return err
++	}
++	var cfg struct {
++		Model     string `toml:"model"`
++		Provider  string `toml:"model_provider"`
++		Catalog   string `toml:"model_catalog_json"`
++		Effort    string `toml:"model_reasoning_effort"`
++		BaseURL   string `toml:"openai_base_url"`
++		Profile   string `toml:"profile"`
++		Providers map[string]struct {
++			BaseURL string `toml:"base_url"`
++			Token   string `toml:"experimental_bearer_token"`
++		} `toml:"model_providers"`
++	}
++	if toml.Unmarshal(edit.TOMLWithout(edit.TrimBOM(data), "projects"), &cfg) != nil || cfg.Profile != "" {
++		return nil
++	}
++	name := "magpie-desktop-models.json"
++	switch cfg.Provider {
++	case "", "openai":
++		if strings.TrimSuffix(cfg.BaseURL, "/") != gateway.URL()+gateway.CodexPath {
++			return nil
++		}
++	case magpieID:
++		p := cfg.Providers[magpieID]
++		if strings.TrimSuffix(p.BaseURL, "/") != gateway.URL()+"/v1" || !ourKey(p.Token) {
++			return nil
++		}
++		name = "magpie-models.json"
++	default:
++		return nil
++	}
++	path := cfg.Catalog
++	if !filepath.IsAbs(path) {
++		path = filepath.Join(dir, path)
++	}
++	if filepath.Clean(path) != filepath.Join(dir, name) {
++		return nil
++	}
++	// A home may have aliases; a catalog redirected out of it is another
++	// owner's file. Never create a missing catalog in a secondary home.
++	realDir, dirErr := filepath.EvalSymlinks(dir)
++	realPath, pathErr := filepath.EvalSymlinks(path)
++	if dirErr != nil || pathErr != nil || realPath != filepath.Join(realDir, name) || edit.IsHardLink(path) {
++		return nil
++	}
++	cur, err := edit.Read(path)
++	if err != nil {
++		return err
++	}
++	var doc map[string]json.RawMessage
++	var models []map[string]any
++	if json.Unmarshal(cur, &doc) != nil || doc == nil {
++		return nil
++	}
++	decode := json.NewDecoder(bytes.NewReader(doc["models"]))
++	decode.UseNumber()
++	if decode.Decode(&models) != nil || models == nil {
++		return nil
++	}
++	for _, m := range models {
++		if slug, _ := m["slug"].(string); slug == "" {
++			return nil
++		}
++	}
++	var b []byte
++	if name == "magpie-models.json" {
++		b = codexcat.CatalogUsed(magpieModels("codex"), cfg.Effort, []string{cfg.Model})
++	} else {
++		// The default home's live backend list belongs to its account.
++		// Keep this account's native (bare) slugs and their metadata;
++		// qualified slugs in this managed file are magpie's additions.
++		native := map[string]bool{}
++		var own []any
++		for _, m := range models {
++			slug := m["slug"].(string)
++			description, _ := m["description"].(string)
++			if strings.Contains(slug, "/") || catalog.MagpieAdded("", slug, description) {
++				continue
++			}
++			if n, ok := m["priority"].(json.Number); ok {
++				priority, err := strconv.Atoi(n.String())
++				if err != nil {
++					return nil
++				}
++				m["priority"] = priority
++			}
++			native[slug] = true
++			own = append(own, m)
++		}
++		more := provider.CodexListedBeside(native)
++		all := append(own, codexcat.EntriesAt(more, len(own)+100, cfg.Effort)...)
++		if order, ok := provider.CodexOrder(); ok {
++			codexcat.Order(all, order)
++		}
++		codexcat.FitOwn(all, []string{cfg.Model}, func(slug string) bool { return native[slug] || codexcat.ChatGPTOwn(slug) })
++		b, err = json.Marshal(map[string]any{"models": all})
++		if err != nil {
++			return err
++		}
++	}
++	// Keep preserves user-added model fields; merge its models back into
++	// the original envelope so top-level metadata survives as well.
++	var fresh map[string]json.RawMessage
++	if err := json.Unmarshal(codexcat.Keep(cur, b), &fresh); err != nil {
++		return err
++	}
++	doc["models"] = fresh["models"]
++	b, err = json.MarshalIndent(doc, "", " ")
++	if err != nil || bytes.Equal(cur, b) {
++		return err
++	}
++	// The owner may have disconnected or edited the catalog while its new
++	// entries were built. Leave that change for the next sync to inspect.
++	if now, err := edit.Read(filepath.Join(dir, "config.toml")); err != nil || !bytes.Equal(now, data) {
++		return err
++	}
++	if now, err := edit.Read(path); err != nil || !bytes.Equal(now, cur) {
++		return err
++	}
++	return edit.WriteAtomic(path, b)
++}
+diff --git a/internal/agent/codex_other_homes_review_test.go b/internal/agent/codex_other_homes_review_test.go
+new file mode 100644
+index 0000000..7a9ae41
+--- /dev/null
++++ b/internal/agent/codex_other_homes_review_test.go
+@@ -0,0 +1,192 @@
++package agent
++
++import (
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"runtime"
++	"testing"
++
++	"github.com/yetone/magpie/internal/codexcat"
++	"github.com/yetone/magpie/internal/gateway"
++	"github.com/yetone/magpie/internal/provider"
++)
++
++func otherHomeReviewConfig(dir, model string) string {
++	return fmt.Sprintf("model = %q\nmodel_reasoning_effort = \"high\"\nopenai_base_url = %q\nmodel_catalog_json = %q\n", model, gateway.URL()+gateway.CodexPath, filepath.Join(dir, "magpie-desktop-models.json"))
++}
++
++// A large catalog keeps this account's native models and selected model
++// within the page the desktop picker actually reads.
++func TestCodexOtherHomesReviewLargeCatalog(t *testing.T) {
++	home, _ := codexHome(t, "", "")
++	var names []string
++	for i := range 130 {
++		names = append(names, fmt.Sprintf("m%03d", i))
++	}
++	if err := provider.Save(provider.Provider{ID: "fake", Name: "Fake", Key: "k", Chat: "http://127.0.0.1:1/v1", Models: names}); err != nil {
++		t.Fatal(err)
++	}
++	dir := filepath.Join(home, ".codex-work")
++	config := otherHomeReviewConfig(dir, "fake/m129")
++	writeFile(t, filepath.Join(dir, "config.toml"), config)
++	path := filepath.Join(dir, "magpie-desktop-models.json")
++	writeFile(t, path, `{"models":[{"slug":"native-only","priority":900,"base_instructions":"account-owned","opaque_number":9007199254740993},{"slug":"native-hidden","priority":1,"visibility":"hide"}]}`)
++	if err := syncCodexCatalogIn(dir); err != nil {
++		t.Fatal(err)
++	}
++	var list struct {
++		Models []struct {
++			Slug         string      `json:"slug"`
++			Priority     int         `json:"priority"`
++			Instructions string      `json:"base_instructions"`
++			Opaque       json.Number `json:"opaque_number"`
++			Visibility   string      `json:"visibility"`
++		} `json:"models"`
++	}
++	if err := json.Unmarshal([]byte(readFile(path)), &list); err != nil {
++		t.Fatal(err)
++	}
++	found := map[string]bool{}
++	for _, m := range list.Models {
++		found[m.Slug] = true
++		if (m.Slug == "native-only" || m.Slug == "fake/m129") && m.Priority > codexcat.AppList {
++			t.Errorf("%s is outside the desktop's first page: %d", m.Slug, m.Priority)
++		}
++		if m.Slug == "native-only" && (m.Instructions != "account-owned" || m.Opaque.String() != "9007199254740993") {
++			t.Errorf("native metadata changed: %+v", m)
++		}
++		if m.Slug == "native-hidden" && m.Visibility != "hide" {
++			t.Errorf("native hidden model became visible: %+v", m)
++		}
++	}
++	for _, slug := range []string{"native-only", "native-hidden", "fake/m129"} {
++		if !found[slug] {
++			t.Errorf("model missing: %s", slug)
++		}
++	}
++	if readFile(filepath.Join(dir, "config.toml")) != config {
++		t.Fatal("selected model or config changed")
++	}
++}
++
++// Explicit CODEX_HOME and another spelling of it never turn the primary
++// account into a secondary update target.
++func TestCodexOtherHomesReviewExplicitHome(t *testing.T) {
++	home, _ := codexHome(t, "", "")
++	primary := filepath.Join(home, ".codex-primary")
++	secondary := filepath.Join(home, ".codex")
++	old := `{"models":[{"slug":"native-only"}]}`
++	for _, dir := range []string{primary, secondary} {
++		writeFile(t, filepath.Join(dir, "auth.json"), "{}")
++		writeFile(t, filepath.Join(dir, "config.toml"), otherHomeReviewConfig(dir, "fake/m1"))
++		writeFile(t, filepath.Join(dir, "magpie-desktop-models.json"), old)
++	}
++	alias := filepath.Join(home, ".codex-alias")
++	if err := os.Symlink(primary, alias); err != nil {
++		t.Skip(err)
++	}
++	t.Setenv("CODEX_HOME", alias)
++	syncOtherCodexCatalogs()
++	if readFile(filepath.Join(primary, "magpie-desktop-models.json")) != old {
++		t.Fatal("primary alias was treated as another account")
++	}
++	if readFile(filepath.Join(secondary, "magpie-desktop-models.json")) == old {
++		t.Fatal("default home did not update with explicit CODEX_HOME elsewhere")
++	}
++	if os.Getenv("CODEX_HOME") != alias {
++		t.Fatal("sync changed CODEX_HOME")
++	}
++}
++
++func TestCodexOtherHomesReviewUnknownOrUnmanaged(t *testing.T) {
++	for _, kind := range []string{"manual-provider", "wrong-key", "profile", "null-list", "object-list", "null-entry", "missing-slug", "redirected", "hardlinked"} {
++		t.Run(kind, func(t *testing.T) {
++			home, _ := codexHome(t, "", "")
++			dir := filepath.Join(home, ".codex-work")
++			path := filepath.Join(dir, "magpie-desktop-models.json")
++			config := otherHomeReviewConfig(dir, "fake/m1")
++			old := `{"models":[{"slug":"native-only"}]}`
++			switch kind {
++			case "manual-provider", "wrong-key":
++				path = filepath.Join(dir, "magpie-models.json")
++				base, token := "https://relay.invalid/v1", "magpie"
++				if kind == "wrong-key" {
++					base, token = gateway.URL()+"/v1", "someone-elses-key"
++				}
++				config = fmt.Sprintf("model_provider = \"magpie\"\nmodel_catalog_json = \"magpie-models.json\"\n[model_providers.magpie]\nbase_url = %q\nexperimental_bearer_token = %q\n", base, token)
++			case "profile":
++				config += "profile = \"work\"\n[profiles.work]\nmodel_provider = \"custom\"\n"
++			case "null-list":
++				old = `{"models":null}`
++			case "object-list":
++				old = `{"models":{}}`
++			case "null-entry":
++				old = `{"models":[null]}`
++			case "missing-slug":
++				old = `{"models":[{"description":"unknown"}]}`
++			}
++			writeFile(t, filepath.Join(dir, "config.toml"), config)
++			writeFile(t, path, old)
++			if kind == "redirected" {
++				outside := filepath.Join(home, "other-owner.json")
++				writeFile(t, outside, old)
++				if err := os.Remove(path); err != nil {
++					t.Fatal(err)
++				}
++				if err := os.Symlink(outside, path); err != nil {
++					t.Skip(err)
++				}
++			}
++			outside := filepath.Join(home, "other-owner-hardlink.json")
++			if kind == "hardlinked" {
++				if err := os.Link(path, outside); err != nil {
++					t.Skip(err)
++				}
++			}
++			if err := syncCodexCatalogIn(dir); err != nil {
++				t.Fatal(err)
++			}
++			if readFile(path) != old || readFile(filepath.Join(dir, "config.toml")) != config {
++				t.Fatal("unknown or unmanaged state was overwritten")
++			}
++			if kind == "hardlinked" && readFile(outside) != old {
++				t.Fatal("another owner's hardlinked catalog was overwritten")
++			}
++		})
++	}
++}
++
++func TestCodexOtherHomesReviewUnreadable(t *testing.T) {
++	if runtime.GOOS == "windows" {
++		t.Skip("Unix permissions are not Windows file access controls")
++	}
++	for _, name := range []string{"config.toml", "magpie-desktop-models.json"} {
++		t.Run(name, func(t *testing.T) {
++			home, _ := codexHome(t, "", "")
++			dir := filepath.Join(home, ".codex-work")
++			config := otherHomeReviewConfig(dir, "fake/m1")
++			old := `{"models":[{"slug":"native-only"}]}`
++			writeFile(t, filepath.Join(dir, "config.toml"), config)
++			writeFile(t, filepath.Join(dir, "magpie-desktop-models.json"), old)
++			locked := filepath.Join(dir, name)
++			if err := os.Chmod(locked, 0); err != nil {
++				t.Fatal(err)
++			}
++			t.Cleanup(func() { _ = os.Chmod(locked, 0o600) })
++			if _, err := os.ReadFile(locked); err == nil {
++				t.Skip("this user can read mode-000 files")
++			}
++			if err := syncCodexCatalogIn(dir); err == nil {
++				t.Fatal("unreadable file was treated as known")
++			}
++			if err := os.Chmod(locked, 0o600); err != nil {
++				t.Fatal(err)
++			}
++			if readFile(filepath.Join(dir, "magpie-desktop-models.json")) != old || readFile(filepath.Join(dir, "config.toml")) != config {
++				t.Fatal("unreadable state was overwritten")
++			}
++		})
++	}
++}
+diff --git a/internal/agent/codex_other_homes_test.go b/internal/agent/codex_other_homes_test.go
+new file mode 100644
+index 0000000..72c7358
+--- /dev/null
++++ b/internal/agent/codex_other_homes_test.go
+@@ -0,0 +1,149 @@
++package agent
++
++import (
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/yetone/magpie/internal/gateway"
++	"github.com/yetone/magpie/internal/provider"
++)
++
++// A desktop magpie started without CODEX_HOME used to refresh ~/.codex
++// alone. A second account's picker kept the old list, even after Sync.
++// Each account keeps its own native entries, settings and sign-in.
++func TestCodexOtherHomesCatalogSync(t *testing.T) {
++	home, _ := codexHome(t, `{"tokens":{"access_token":"x","id_token":"x.e30.x"}}`, "model = \"gpt-6-sol\"\n")
++	app := true
++	codexAppReads(t, &app)
++	mainList := `{"models":[{"slug":"main-account-only","base_instructions":"main account"}]}`
++	deskListIs(t, &mainList)
++	if _, err := codex(home).Join(); err != nil {
++		t.Fatal(err)
++	}
++
++	type account struct{ dir, config, catalog, auth, native string }
++	var accounts []account
++	for i, rel := range []string{".codex-work", ".codex-managed-agent/accounts/work"} {
++		dir := filepath.Join(home, filepath.FromSlash(rel))
++		native := fmt.Sprintf("account-%d-only", i)
++		config := fmt.Sprintf("# this account\nmodel = \"fake/m1\"\nmodel_reasoning_effort = \"high\"\nopenai_base_url = %q\nmodel_catalog_json = %q\n[desktop]\ntheme = \"dark\"\n", gateway.URL()+gateway.CodexPath, filepath.Join(dir, "magpie-desktop-models.json"))
++		catalog := fmt.Sprintf(`{"account_note":"keep me","models":[{"slug":%q,"base_instructions":"this account","context_window":123456,"priority":1},{"slug":"retired/m0","description":"Old via magpie"}]}`, native)
++		auth := fmt.Sprintf("{\"account-marker\":%q}", native)
++		writeFile(t, filepath.Join(dir, "config.toml"), config)
++		writeFile(t, filepath.Join(dir, "magpie-desktop-models.json"), catalog)
++		writeFile(t, filepath.Join(dir, "auth.json"), auth)
++		accounts = append(accounts, account{dir, config, catalog, auth, native})
++	}
++	SyncCatalog()
++	for _, a := range accounts {
++		path := filepath.Join(a.dir, "magpie-desktop-models.json")
++		got := readFile(path)
++		if !strings.Contains(got, `"fake/m1"`) || strings.Contains(got, `"retired/m0"`) {
++			t.Errorf("%s: catalog did not follow magpie's models: %s", a.dir, got)
++		}
++		var list struct {
++			Note   string           `json:"account_note"`
++			Models []map[string]any `json:"models"`
++		}
++		if err := json.Unmarshal([]byte(got), &list); err != nil {
++			t.Fatal(err)
++		}
++		if list.Note != "keep me" || !strings.Contains(got, a.native) || strings.Contains(got, "main-account-only") {
++			t.Errorf("%s: native account metadata changed: %s", a.dir, got)
++		}
++		for _, m := range list.Models {
++			if m["slug"] == a.native && (m["base_instructions"] != "this account" || m["context_window"] != float64(123456)) {
++				t.Errorf("native model changed: %v", m)
++			}
++			if m["slug"] == "fake/m1" && m["default_reasoning_level"] != "high" {
++				t.Errorf("%s: this account's effort was not used: %v", a.dir, m["default_reasoning_level"])
++			}
++		}
++		if readFile(filepath.Join(a.dir, "config.toml")) != a.config || readFile(filepath.Join(a.dir, "auth.json")) != a.auth {
++			t.Errorf("%s: sync wrote account settings or sign-in", a.dir)
++		}
++		// Identical syncs do not tell the app its catalog changed again.
++		old := time.Unix(1_600_000_000, 0)
++		if err := os.Chtimes(path, old, old); err != nil {
++			t.Fatal(err)
++		}
++		SyncCatalog()
++		st, err := os.Stat(path)
++		if err != nil || !st.ModTime().Equal(old) || readFile(path) != got {
++			t.Errorf("%s: unchanged catalog was rewritten: %v", a.dir, err)
++		}
++	}
++}
++
++func TestCodexOtherHomesProviderCatalog(t *testing.T) {
++	home, _ := codexHome(t, "", "")
++	dir := filepath.Join(home, ".codex-provider")
++	path := filepath.Join(dir, "magpie-models.json")
++	config := fmt.Sprintf("model = \"fake/m1\"\nmodel_reasoning_effort = \"low\"\nmodel_provider = \"magpie\"\nmodel_catalog_json = \"magpie-models.json\"\n[model_providers.magpie]\nbase_url = %q\nexperimental_bearer_token = \"magpie\"\n", gateway.URL()+"/v1")
++	writeFile(t, filepath.Join(dir, "config.toml"), config)
++	writeFile(t, filepath.Join(dir, "auth.json"), "{\"leave\":true}")
++	writeFile(t, path, `{"models":[{"slug":"fake/m1","supports_reasoning_summaries":true},{"slug":"retired/m0"}]}`)
++	SyncCatalog()
++	got := readFile(path)
++	if !strings.Contains(got, `"base_instructions"`) || !strings.Contains(got, `"default_reasoning_level": "low"`) || !strings.Contains(got, `"supports_reasoning_summaries": true`) || strings.Contains(got, "retired/m0") {
++		t.Fatalf("provider catalog was not refreshed with its own defaults: %s", got)
++	}
++	if readFile(filepath.Join(dir, "config.toml")) != config || readFile(filepath.Join(dir, "auth.json")) != "{\"leave\":true}" {
++		t.Fatal("provider settings or sign-in changed")
++	}
++	// A newly fetched vendor list reaches every connected home too.
++	if err := provider.Save(provider.Provider{ID: "fake", Name: "Fake", Key: "k", Chat: "http://127.0.0.1:1/v1", Models: []string{"m2"}}); err != nil {
++		t.Fatal(err)
++	}
++	SyncCatalog()
++	if got = readFile(path); !strings.Contains(got, "fake/m2") || strings.Contains(got, `"fake/m1"`) {
++		t.Fatalf("vendor change did not reach the other home: %s", got)
++	}
++}
++
++func TestCodexOtherHomesKeepUnmanagedCatalogs(t *testing.T) {
++	home, _ := codexHome(t, "", "")
++	old := `{"models":[{"slug":"retired/m0","description":"Old via magpie"}]}`
++	for _, kind := range []string{"custom", "disconnected", "remote", "broken-config", "broken-catalog", "missing", "other-home"} {
++		dir := filepath.Join(home, ".codex-profiles", kind)
++		catalog := filepath.Join(dir, "magpie-desktop-models.json")
++		ref, base, content := catalog, gateway.URL()+gateway.CodexPath, old
++		switch kind {
++		case "custom":
++			ref = filepath.Join(dir, "mine.json")
++		case "disconnected":
++			base = ""
++		case "remote":
++			base = "http://127.0.0.1:1" + gateway.CodexPath
++		case "broken-catalog":
++			content = "{"
++		case "other-home":
++			ref = filepath.Join(home, ".codex", "magpie-desktop-models.json")
++		}
++		config := fmt.Sprintf("openai_base_url = %q\nmodel_catalog_json = %q\n", base, ref)
++		if kind == "broken-config" {
++			config += "[broken\n"
++		}
++		writeFile(t, filepath.Join(dir, "config.toml"), config)
++		writeFile(t, filepath.Join(dir, "auth.json"), "{}")
++		if kind != "missing" {
++			writeFile(t, catalog, content)
++		}
++		SyncCatalog()
++		if readFile(filepath.Join(dir, "config.toml")) != config {
++			t.Errorf("%s: config changed", kind)
++		}
++		if kind == "missing" {
++			if _, err := os.Stat(catalog); !os.IsNotExist(err) {
++				t.Errorf("missing catalog recreated: %v", err)
++			}
++		} else if readFile(catalog) != content {
++			t.Errorf("%s: unmanaged or unknown catalog changed", kind)
++		}
++	}
++}
+diff --git a/internal/agent/sync.go b/internal/agent/sync.go
+index e6eff15..c80bfff 100644
+--- a/internal/agent/sync.go
++++ b/internal/agent/sync.go
+@@ -62,6 +62,7 @@ func SyncCatalog() {
+ 				a.renameFoundGroups()
+ 			}
+ 		}
++		syncOtherCodexCatalogs()
+ 		unhold()
+ 		release()
+ 		syncing.Lock()
+diff --git a/internal/appdir/codex.go b/internal/appdir/codex.go
+index cfb9b1e..86f38f9 100644
+--- a/internal/appdir/codex.go
++++ b/internal/appdir/codex.go
+@@ -51,6 +51,17 @@ func CodexHomes() []string {
+ 
+ // CodexHomesIn is CodexHomes with home as the user's home folder.
+ func CodexHomesIn(home string) []string {
++	return codexHomesIn(home, false)
++}
++
++// CodexCatalogHomesIn also looks under accounts containers made by account
++// managers. Only catalog synchronization uses this wider search: finding a
++// model list must not enroll more sign-ins or expose more session stores.
++func CodexCatalogHomesIn(home string) []string {
++	return codexHomesIn(home, true)
++}
++
++func codexHomesIn(home string, accounts bool) []string {
+ 	main := CodexHomeIn(home)
+ 	out := []string{main}
+ 	seen := map[string]bool{sameDir(main): true}
+@@ -80,13 +91,24 @@ func CodexHomesIn(home string) []string {
+ 			}
+ 			if codexHomeAt(dir) {
+ 				add(dir)
+-				continue
++				if !accounts {
++					continue
++				}
+ 			}
+ 			subs, _ := os.ReadDir(dir)
+ 			for _, s := range subs {
+-				if sub := filepath.Join(dir, s.Name()); codexHomeAt(sub) {
++				sub := filepath.Join(dir, s.Name())
++				if codexHomeAt(sub) {
+ 					add(sub)
+ 				}
++				if accounts && s.Name() == "accounts" {
++					children, _ := os.ReadDir(sub)
++					for _, child := range children {
++						if account := filepath.Join(sub, child.Name()); codexHomeAt(account) {
++							add(account)
++						}
++					}
++				}
+ 			}
+ 		}
+ 	}
+diff --git a/internal/appdir/codex_homes_test.go b/internal/appdir/codex_homes_test.go
+index 4cb3bfc..622d7cd 100644
+--- a/internal/appdir/codex_homes_test.go
++++ b/internal/appdir/codex_homes_test.go
+@@ -41,3 +41,36 @@ func TestCodexHomesIn(t *testing.T) {
+ 		t.Fatalf("CodexHomesIn = %v, want %v", got, want)
+ 	}
+ }
++
++// Account managers keep homes a level below their accounts container,
++// including when the manager's root itself has a Codex sign-in.
++func TestCodexCatalogHomesInAccountContainers(t *testing.T) {
++	t.Setenv("CODEX_HOME", "")
++	home := t.TempDir()
++	root := filepath.Join(home, ".codex-managed-agent")
++	want := []string{root, filepath.Join(root, "accounts", "personal"), filepath.Join(root, "accounts", "work")}
++	for _, dir := range want {
++		if err := os.MkdirAll(filepath.Join(dir, "sessions"), 0o755); err != nil {
++			t.Fatal(err)
++		}
++	}
++	// Other app folders and arbitrarily deep trees are not searched.
++	for _, dir := range []string{filepath.Join(home, "projects", "accounts", "no"), filepath.Join(root, "notes", "nested")} {
++		if err := os.MkdirAll(filepath.Join(dir, "sessions"), 0o755); err != nil {
++			t.Fatal(err)
++		}
++	}
++	got := CodexCatalogHomesIn(home)
++	if len(got) != len(want)+1 {
++		t.Fatalf("homes = %v, want default and %v", got, want)
++	}
++	for _, dir := range want {
++		if !slices.Contains(got, dir) {
++			t.Errorf("account home %s was not found: %v", dir, got)
++		}
++	}
++	// Credential and session discovery keep their existing scope.
++	if got := CodexHomesIn(home); len(got) != 2 || got[1] != root {
++		t.Fatalf("catalog discovery expanded sign-in discovery too: %v", got)
++	}
++}
+diff --git a/internal/codexcat/codexcat.go b/internal/codexcat/codexcat.go
+index 546da87..a04e223 100644
+--- a/internal/codexcat/codexcat.go
++++ b/internal/codexcat/codexcat.go
+@@ -352,6 +352,12 @@ func Entries(ms []catalog.Model, after int) []any {
+ 	return entriesAt(ms, after, NewSessionEffort())
+ }
+ 
++// EntriesAt is Entries for a particular Codex home's default effort,
++// instead of the home this magpie was started with.
++func EntriesAt(ms []catalog.Model, after int, effort string) []any {
++	return entriesAt(ms, after, effort)
++}
++
+ func entriesAt(ms []catalog.Model, after int, effort string) []any {
+ 	own := CacheEntries()
+ 	v1 := V1()
+diff --git a/internal/edit/file.go b/internal/edit/file.go
+index 5edd7eb..99a584d 100644
+--- a/internal/edit/file.go
++++ b/internal/edit/file.go
+@@ -308,6 +308,10 @@ func IsLink(path string) bool {
+ 	return err == nil && fi.Mode()&fs.ModeSymlink != 0
+ }
+ 
++// IsHardLink reports whether path shares its file with another name.
++// A caller updating only one owner's files can leave such files alone.
++func IsHardLink(path string) bool { return hardLinked(path) }
++
+ // Remove takes away a file magpie has emptied. A symlink stays and the
+ // file it points at is emptied instead, when there is one: deleting the
+ // link would leave the old text in its target. A file with other hard
+-- 
+2.39.2 (Apple Git-143)
+

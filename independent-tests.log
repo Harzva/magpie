@@ -1,0 +1,32 @@
+=== RUN   TestCodexOtherHomesReviewLargeCatalog
+--- PASS: TestCodexOtherHomesReviewLargeCatalog (1.00s)
+=== RUN   TestCodexOtherHomesReviewExplicitHome
+--- PASS: TestCodexOtherHomesReviewExplicitHome (0.06s)
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/manual-provider
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/wrong-key
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/profile
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/null-list
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/object-list
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/null-entry
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/missing-slug
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/redirected
+=== RUN   TestCodexOtherHomesReviewUnknownOrUnmanaged/hardlinked
+--- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged (0.28s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/manual-provider (0.02s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/wrong-key (0.03s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/profile (0.02s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/null-list (0.05s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/object-list (0.02s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/null-entry (0.04s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/missing-slug (0.03s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/redirected (0.03s)
+    --- PASS: TestCodexOtherHomesReviewUnknownOrUnmanaged/hardlinked (0.04s)
+=== RUN   TestCodexOtherHomesReviewUnreadable
+=== RUN   TestCodexOtherHomesReviewUnreadable/config.toml
+=== RUN   TestCodexOtherHomesReviewUnreadable/magpie-desktop-models.json
+--- PASS: TestCodexOtherHomesReviewUnreadable (0.05s)
+    --- PASS: TestCodexOtherHomesReviewUnreadable/config.toml (0.02s)
+    --- PASS: TestCodexOtherHomesReviewUnreadable/magpie-desktop-models.json (0.03s)
+PASS
+ok  	github.com/yetone/magpie/internal/agent	2.558s
